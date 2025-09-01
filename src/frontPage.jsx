@@ -27,17 +27,16 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-
+/** Config */
 const COLLECTION = process.env.REACT_APP_TABLES_COLLECTION || "tables";
 const OVERPASS_ENDPOINT = "https://overpass-api.de/api/interpreter";
 const OVERPASS_RADIUS_M = 1200; // 1.2 km
 
-
-
+/** Status (unchanged colours) */
 const STATUS_META = {
-  empty: { label: "Empty", color: "#ef4444" }, // red-500
-  "half-full": { label: "Half-full", color: "#f59e0b" }, // amber-500
-  full: { label: "Full", color: "#22c55e" }, // green-500
+  empty: { label: "Empty", color: "#ef4444" },
+  "half-full": { label: "Half-full", color: "#f59e0b" },
+  full: { label: "Full", color: "#22c55e" },
 };
 const useStatusColor = (status) => STATUS_META[status]?.color ?? "#6b7280";
 
@@ -54,7 +53,7 @@ function StatusBadge({ status }) {
   );
 }
 
-/** Coerce lat/lng (supports strings or numbers) */
+/** Utils */
 function getLatLng(data) {
   const lat = Number(data?.lat);
   const lng = Number(data?.lng);
@@ -62,7 +61,6 @@ function getLatLng(data) {
   return null;
 }
 
-/** Fit map to markers */
 function FitToMarkers({ points }) {
   const map = useMap();
   useEffect(() => {
@@ -75,7 +73,6 @@ function FitToMarkers({ points }) {
   return null;
 }
 
-/** Haversine distance (m) */
 function distanceM(a, b) {
   const R = 6371000;
   const dLat = (b.lat - a.lat) * Math.PI / 180;
@@ -86,7 +83,7 @@ function distanceM(a, b) {
   return 2 * R * Math.asin(Math.sqrt(x));
 }
 
-/** Fetch nearby shops from Overpass around (lat,lng) */
+/** Overpass (nearby shops) */
 async function fetchOverpassDeals(lat, lng) {
   const query = `
     [out:json][timeout:25];
@@ -136,12 +133,13 @@ export default function FrontPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(true);
 
-  // selection + deals (now shown beneath the map)
+  // selection + deals
   const [selected, setSelected] = useState(null);
   const [deals, setDeals] = useState([]);
   const [dealsLoading, setDealsLoading] = useState(false);
   const [dealsError, setDealsError] = useState(null);
 
+  // ADD BY ADDRESS (INSIDE component)
   const [newName, setNewName] = useState("");
   const [newAddress, setNewAddress] = useState("");
   const [newStatus, setNewStatus] = useState("empty");
@@ -229,42 +227,42 @@ export default function FrontPage() {
     }
   }
 
+  // Add table by address handler
   async function onAddByAddress(e) {
-  e.preventDefault();
-  setAdding(true);
-  setAddError(null);
-  setAddResolvedAddr("");
+    e.preventDefault();
+    setAdding(true);
+    setAddError(null);
+    setAddResolvedAddr("");
 
-  try {
-    const name = newName.trim();
-    const addr = newAddress.trim();
-    if (!name || !addr) throw new Error("Please enter both a name and an address.");
+    try {
+      const name = newName.trim();
+      const addr = newAddress.trim();
+      if (!name || !addr) throw new Error("Please enter both a name and an address.");
 
-    const geo = await geocodeNominatim(addr); // {lat,lng,display_name} | null
-    if (!geo) throw new Error("Couldn’t geocode that address. Try adding city/province.");
+      const geo = await geocodeNominatim(addr); // {lat,lng,display_name} | null
+      if (!geo) throw new Error("Couldn’t geocode that address. Try adding city/province.");
 
-    await addDoc(collection(db, COLLECTION), {
-      name,
-      address: geo.display_name,
-      lat: geo.lat,
-      lng: geo.lng,
-      status: newStatus,
-      notes: "",
-      lastUpdated: Date.now(),
-    });
+      await addDoc(collection(db, COLLECTION), {
+        name,
+        address: geo.display_name,
+        lat: geo.lat,
+        lng: geo.lng,
+        status: newStatus,
+        notes: "",
+        lastUpdated: Date.now(),
+      });
 
-    setAddResolvedAddr(geo.display_name);
-    setNewName("");
-    setNewAddress("");
-    setNewStatus("empty");
-  } catch (err) {
-    console.error(err);
-    setAddError(err?.message || "Failed to add table.");
-  } finally {
-    setAdding(false);
+      setAddResolvedAddr(geo.display_name);
+      setNewName("");
+      setNewAddress("");
+      setNewStatus("empty");
+    } catch (err) {
+      console.error(err);
+      setAddError(err?.message || "Failed to add table.");
+    } finally {
+      setAdding(false);
+    }
   }
-}
-
 
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-rose-50 to-amber-50">
@@ -287,52 +285,7 @@ export default function FrontPage() {
 
       {/* Main area */}
       <div className="absolute inset-0 top-[64px] z-10 grid grid-cols-1 md:grid-cols-3 gap-0">
-        {/* LEFT: Map + Deals (map now smaller; deals underneath) */}
-        <form onSubmit={onAddByAddress} className="space-y-2 rounded-xl border border-rose-200 bg-white/70 p-3">
-          <div className="font-medium">Add table by address</div>
-
-          <input
-            className="w-full rounded-md border border-rose-200 px-2 py-1"
-            placeholder="Table name (e.g., Port Credit Pantry)"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-          />
-          <input
-            className="w-full rounded-md border border-rose-200 px-2 py-1"
-            placeholder="Street address (city/province helps)"
-            value={newAddress}
-            onChange={(e) => setNewAddress(e.target.value)}
-          />
-          <select
-            className="w-full rounded-md border border-rose-200 px-2 py-1"
-            value={newStatus}
-            onChange={(e) => setNewStatus(e.target.value)}
-          >
-            <option value="empty">Empty</option>
-            <option value="half-full">Half-full</option>
-            <option value="full">Full</option>
-          </select>
-
-          <button
-            type="submit"
-            disabled={adding}
-            className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 hover:bg-rose-100 disabled:opacity-50"
-          >
-            {adding ? "Adding…" : "Add table"}
-          </button>
-
-          {addResolvedAddr && (
-            <div className="text-xs text-stone-700">
-              Address resolved to: <span className="font-medium">{addResolvedAddr}</span>
-            </div>
-          )}
-          {addError && (
-            <div className="text-xs text-red-700 border border-red-200 bg-red-50 rounded-md px-2 py-1">
-              {addError}
-            </div>
-          )}
-        </form>
-
+        {/* LEFT: Map + Deals */}
         <div className="md:col-span-2 border-r border-rose-200 h-full overflow-y-auto">
           {/* Map (compact) */}
           <div className="p-3">
@@ -456,7 +409,7 @@ export default function FrontPage() {
           </div>
         </div>
 
-        {/* RIGHT: List (unchanged) */}
+        {/* RIGHT: Filters + Add-by-address + List */}
         <div className="md:col-span-1 bg-rose-50 h-full overflow-y-auto">
           {showFilters && (
             <div className="sticky top-0 z-10 space-y-3 border-b border-rose-200 bg-rose-50/95 p-3 backdrop-blur">
@@ -493,6 +446,7 @@ export default function FrontPage() {
                 Refresh
               </button>
 
+              {/* Legend */}
               <div className="flex items-center gap-4 p-3 border border-rose-200 rounded-xl bg-rose-50">
                 {["full", "half-full", "empty"].map((key) => {
                   const meta = STATUS_META[key] || { label: key, color: "#6b7280" };
@@ -504,9 +458,53 @@ export default function FrontPage() {
                   );
                 })}
               </div>
+
+              {/* ADD BY ADDRESS (right panel) */}
+              <form onSubmit={onAddByAddress} className="space-y-2 rounded-xl border border-rose-200 bg-white/70 p-3">
+                <div className="font-medium">Add table by address</div>
+                <input
+                  className="w-full rounded-md border border-rose-200 px-2 py-1"
+                  placeholder="Table name (e.g., Port Credit Pantry)"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+                <input
+                  className="w-full rounded-md border border-rose-200 px-2 py-1"
+                  placeholder="Street address (city/province helps)"
+                  value={newAddress}
+                  onChange={(e) => setNewAddress(e.target.value)}
+                />
+                <select
+                  className="w-full rounded-md border border-rose-200 px-2 py-1"
+                  value={newStatus}
+                  onChange={(e) => setNewStatus(e.target.value)}
+                >
+                  <option value="empty">Empty</option>
+                  <option value="half-full">Half-full</option>
+                  <option value="full">Full</option>
+                </select>
+                <button
+                  type="submit"
+                  disabled={adding}
+                  className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 hover:bg-rose-100 disabled:opacity-50"
+                >
+                  {adding ? "Adding…" : "Add table"}
+                </button>
+                {addResolvedAddr && (
+                  <div className="text-xs text-stone-700">
+                    Address resolved to: <span className="font-medium">{addResolvedAddr}</span>
+                  </div>
+                )}
+                {addError && (
+                  <div className="text-xs text-red-700 border border-red-200 bg-red-50 rounded-md px-2 py-1">
+                    {addError}
+                  </div>
+                )}
+              </form>
             </div>
           )}
 
+          {/* List */}
           <div className="p-3">
             <h2 className="text-lg font-semibold text-rose-700 mb-2">
               Tables ({filtered.length})
@@ -538,9 +536,7 @@ export default function FrontPage() {
                     key={t.id}
                     onClick={() => setSelected(t)}
                     className={`p-3 border rounded-xl bg-white/70 cursor-pointer transition
-          ${active
-                        ? "border-rose-400 ring-1 ring-rose-300 shadow-lg"
-                        : "border-rose-200 hover:shadow-md"}`}
+                      ${active ? "border-rose-400 ring-1 ring-rose-300 shadow-lg" : "border-rose-200 hover:shadow-md"}`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
