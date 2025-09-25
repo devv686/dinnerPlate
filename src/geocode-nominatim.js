@@ -3,7 +3,7 @@ export async function geocodeNominatim(q, { country = "ca" } = {}) {
   const params = new URLSearchParams({
     q,
     format: "json",
-    addressdetails: "1",
+    addressdetails: "0",
     limit: "1",
   });
   if (country) params.set("countrycodes", country); // bias to Canada

@@ -12,6 +12,8 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import Modal from "react-modal";
+Modal.setAppElement("#root");
 
 import {
   Loader2,
@@ -125,6 +127,10 @@ async function fetchOverpassDeals(lat, lng) {
 }
 
 export default function FrontPage() {
+  //format = current value, function to update value, initial value
+
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
@@ -147,6 +153,10 @@ export default function FrontPage() {
   const [addError, setAddError] = useState(null);
   const [addResolvedAddr, setAddResolvedAddr] = useState("");
 
+
+  //help modal 
+  const openHelp = () => setIsHelpOpen(true);
+  const closeHelp = () => setIsHelpOpen(false);
   // Subscribe to Firestore
   useEffect(() => {
     setLoading(true);
@@ -583,6 +593,38 @@ export default function FrontPage() {
           </div>
         )}
       </div>
+        <button onClick={openHelp} style={{ position: "fixed", bottom: "20px", right: "20px", padding: "10px", background: "#ff8c42", color: "white", border: "none", borderRadius: "8px", cursor: "pointer" }}>
+        ❓ Help
+      </button>
+
+      <Modal
+        isOpen={isHelpOpen}
+        onRequestClose={closeHelp}
+        style={{
+          content: {
+            maxWidth: "500px",
+            margin: "auto",
+            padding: "20px",
+            borderRadius: "8px"
+          },
+          overlay: {
+            backgroundColor: "rgba(0,0,0,0.6)"
+          }
+        }}
+      >
+        <h2>How Dinnerplate Works</h2>
+        <p>
+          Welcome to Dinnerplate 🍽️ — your community food donation platform.
+        </p>
+        <ul>
+          <li><strong>Donors:</strong> Post available food items with details like quantity and expiry.</li>
+          <li><strong>Recipients:</strong> Browse available donations and claim what you need.</li>
+          <li><strong>Capacity:</strong> Check availability before claiming — the table updates in real time.</li>
+        </ul>
+        <button onClick={closeHelp} style={{ background: "#ff4b5c", color: "white", padding: "8px", border: "none", borderRadius: "5px", cursor: "pointer" }}>
+          Close
+        </button>
+      </Modal>
     </div>
   );
 }
